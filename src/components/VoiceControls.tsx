@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from "react"
-import { createSpeechRecognizer } from "../lib/speech"
+import { useState, useRef, useCallback, useEffect } from "react"
+import { createSpeechRecognizer, isSpeechRecognitionSupported } from "../lib/speech"
 import type { SpeechState } from "../types"
 
 interface VoiceControlsProps {
@@ -8,13 +8,20 @@ interface VoiceControlsProps {
 }
 
 export default function VoiceControls({ onTranscript, disabled }: VoiceControlsProps) {
+  const [speechSupported, setSpeechSupported] = useState<boolean | null>(null)
   const [state, setState] = useState<SpeechState>({
     isListening: false,
     transcript: "",
     interimTranscript: "",
     error: null,
   })
+  const [textInput, setTextInput] = useState("")
+  const [showTextInput, setShowTextInput] = useState(false)
   const recognizerRef = useRef<ReturnType<typeof createSpeechRecognizer> | null>(null)
+
+  useEffect(() => {
+    setSpeechSupported(isSpeechRecognitionSupported())
+  }, [])
 
   const handleResult = useCallback(
     (text: string, isFinal: boolean) => {
@@ -54,8 +61,9 @@ export default function VoiceControls({ onTranscript, disabled }: VoiceControlsP
       if (!recognizer) {
         setState((prev) => ({
           ...prev,
-          error: "Speech recognition not supported. Use Chrome.",
+          error: "Speech recognition not available.",
         }))
+        setShowTextInput(true)
         return
       }
 
@@ -71,23 +79,78 @@ export default function VoiceControls({ onTranscript, disabled }: VoiceControlsP
     }
   }, [state.isListening, handleResult, handleError, handleEnd])
 
+  const handleTextSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      if (textInput.trim()) {
+        onTranscript(textInput.trim())
+        setTextInput("")
+        setShowTextInput(false)
+      }
+    },
+    [textInput, onTranscript]
+  )
+
+  if (speechSupported === null) {
+    return <div className="voice-controls">Loading...</div>
+  }
+
   return (
     <div className="voice-controls">
-      <button
-        className={`voice-btn ${state.isListening ? "listening" : ""}`}
-        onClick={toggleListening}
-        disabled={disabled}
-        title={state.isListening ? "Stop listening" : "Start voice input"}
-      >
-        <span className="mic-icon">
-          {state.isListening ? "🔴" : "🎤"}
-        </span>
-        {state.isListening ? "Stop" : "Speak"}
-      </button>
+      {speechSupported && (
+        <>
+          <button
+            className={`voice-btn ${state.isListening ? "listening" : ""}`}
+            onClick={toggleListening}
+            disabled={disabled}
+            title={state.isListening ? "Stop listening" : "Start voice input"}
+          >
+            <span className="mic-icon">
+              {state.isListening ? "🔴" : "🎤"}
+            </span>
+            {state.isListening ? "Stop" : "Speak"}
+          </button>
+          <button
+            className="voice-btn"
+            onClick={() => setShowTextInput(!showTextInput)}
+            disabled={disabled}
+            title="Type command instead"
+          >
+            ✏️
+          </button>
+        </>
+      )}
+
+      {(!speechSupported || showTextInput) && (
+        <form onSubmit={handleTextSubmit} style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+          <input
+            type="text"
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            placeholder="Type your command..."
+            disabled={disabled}
+            style={{
+              padding: "6px 10px",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+              fontSize: "14px",
+              minWidth: "200px",
+            }}
+          />
+          <button
+            type="submit"
+            className="voice-btn"
+            disabled={disabled || !textInput.trim()}
+          >
+            Draw
+          </button>
+        </form>
+      )}
+
       {state.isListening && (
         <span className="status-dot" />
       )}
-      {state.interimTranscript && (
+      {state.interimTranscript && !showTextInput && (
         <div className="interim-text">{state.interimTranscript}</div>
       )}
       {state.error && (

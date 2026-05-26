@@ -33,12 +33,6 @@ export interface ExcalidrawElement {
   isDeleted?: boolean
 }
 
-export interface LLMConfig {
-  apiKey: string
-  model: string
-  baseUrl?: string
-}
-
 export interface SpeechState {
   isListening: boolean
   transcript: string

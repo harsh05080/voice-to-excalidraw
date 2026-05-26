@@ -4,13 +4,20 @@ export interface SpeechCallbacks {
   onEnd: () => void
 }
 
+function getSpeechRecognitionConstructor(): (new () => EventTarget) | null {
+  const win = window as unknown as Record<string, unknown>
+  return (win.SpeechRecognition ??
+    win.webkitSpeechRecognition) as (new () => EventTarget) | null
+}
+
+export function isSpeechRecognitionSupported(): boolean {
+  return getSpeechRecognitionConstructor() !== null
+}
+
 export function createSpeechRecognizer(callbacks: SpeechCallbacks) {
-  const SpeechRecognition =
-    (window as unknown as Record<string, unknown>).SpeechRecognition ??
-    (window as unknown as Record<string, unknown>).webkitSpeechRecognition
+  const SpeechRecognition = getSpeechRecognitionConstructor()
 
   if (!SpeechRecognition) {
-    callbacks.onError("Speech recognition not supported in this browser. Try Chrome.")
     return null
   }
 

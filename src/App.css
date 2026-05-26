@@ -1,0 +1,205 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #f8f9fa;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  z-index: 10;
+  gap: 12px;
+}
+
+.app-header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-toggle {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.config-toggle:hover {
+  background: #f0f0f0;
+}
+
+.config-panel {
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.config-panel form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.config-panel label {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  color: #666;
+  gap: 4px;
+}
+
+.config-panel input,
+.config-panel select {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  min-width: 180px;
+}
+
+.config-actions {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  padding-bottom: 2px;
+}
+
+.config-actions button {
+  padding: 6px 14px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  background: #fff;
+}
+
+.config-actions button[type="submit"] {
+  background: #1971c2;
+  color: #fff;
+  border-color: #1971c2;
+}
+
+.voice-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+
+.voice-btn:hover:not(:disabled) {
+  background: #f0f0f0;
+}
+
+.voice-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voice-btn.listening {
+  background: #ffe3e3;
+  border-color: #ff6b6b;
+  color: #c92a2a;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff6b6b;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.interim-text {
+  font-size: 13px;
+  color: #868e96;
+  font-style: italic;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.error-text {
+  font-size: 13px;
+  color: #e03131;
+}
+
+.status-bar {
+  padding: 6px 16px;
+  font-size: 13px;
+  color: #2b8a3e;
+  background: #ebfbee;
+  border-bottom: 1px solid #d3f9d8;
+}
+
+.status-bar.error {
+  color: #c92a2a;
+  background: #fff5f5;
+  border-color: #ffe3e3;
+}
+
+.app-main {
+  flex: 1;
+  overflow: hidden;
+}
+
+.excalidraw-wrapper {
+  height: 100%;
+  width: 100%;
+}
+
+.app-footer {
+  padding: 6px 16px;
+  font-size: 12px;
+  color: #868e96;
+  background: #fff;
+  border-top: 1px solid #e0e0e0;
+  text-align: center;
+}
+
+.app-footer em {
+  color: #495057;
+}

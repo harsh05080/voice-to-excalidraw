@@ -31,6 +31,8 @@ export interface ExcalidrawElement {
   groupIds?: string[]
   isFrame?: boolean
   isDeleted?: boolean
+  fromElementIndex?: number
+  toElementIndex?: number
 }
 
 export interface SpeechState {
@@ -38,4 +40,40 @@ export interface SpeechState {
   transcript: string
   interimTranscript: string
   error: string | null
+}
+
+export type ActionType = "add" | "modify" | "delete" | "clear"
+
+export interface AddAction {
+  type: "add"
+  element: ExcalidrawElement
+}
+
+export interface ModifyAction {
+  type: "modify"
+  targetIndex: number
+  element: Partial<ExcalidrawElement>
+}
+
+export interface DeleteAction {
+  type: "delete"
+  targetIndex: number
+}
+
+export interface ClearAction {
+  type: "clear"
+}
+
+export type DiagramAction = AddAction | ModifyAction | DeleteAction | ClearAction
+
+export interface ActionsResponse {
+  actions: DiagramAction[]
+}
+
+export interface TextToElementsRequest {
+  description: string
+  existingElements: ExcalidrawElement[]
+  viewportWidth: number
+  viewportHeight: number
+  conversationHistory: { role: "user" | "assistant"; content: string }[]
 }

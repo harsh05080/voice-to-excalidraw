@@ -1,11 +1,14 @@
-import type { ExcalidrawElement } from "../types"
+import type { ExcalidrawElement, DiagramAction } from "../types"
 
 const API_BASE = "http://localhost:8000"
 
-export async function textToElements(
+export async function textToActions(
   description: string,
-  existingElements: ExcalidrawElement[] = []
-): Promise<ExcalidrawElement[]> {
+  existingElements: ExcalidrawElement[],
+  viewportWidth: number,
+  viewportHeight: number,
+  conversationHistory: { role: "user" | "assistant"; content: string }[]
+): Promise<DiagramAction[]> {
   const response = await fetch(`${API_BASE}/api/text-to-elements`, {
     method: "POST",
     headers: {
@@ -14,6 +17,9 @@ export async function textToElements(
     body: JSON.stringify({
       description,
       existingElements,
+      viewportWidth,
+      viewportHeight,
+      conversationHistory,
     }),
   })
 
@@ -23,5 +29,5 @@ export async function textToElements(
   }
 
   const data = await response.json()
-  return data.elements as ExcalidrawElement[]
+  return data.actions as DiagramAction[]
 }

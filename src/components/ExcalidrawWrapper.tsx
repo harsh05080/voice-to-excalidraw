@@ -1,16 +1,18 @@
 import { useRef, useCallback, useEffect, forwardRef, useImperativeHandle, useState } from "react"
 import { Excalidraw, restoreElements } from "@excalidraw/excalidraw"
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types"
-import type { ExcalidrawElement, ExcalidrawElementType } from "../types"
+import type { ExcalidrawElement, ExcalidrawElementType, DiagramAction } from "../types"
+import { processActions } from "../lib/actions"
 import "@excalidraw/excalidraw/index.css"
 
 interface ExcalidrawWrapperProps {
-  elementsToAdd: ExcalidrawElement[]
-  onElementsAdded: () => void
+  actionsToApply: DiagramAction[]
+  onActionsApplied: () => void
 }
 
 export interface ExcalidrawWrapperHandle {
   getSceneElements: () => ExcalidrawElement[]
+  getViewport: () => { width: number; height: number }
 }
 
 const EXCALIDRAW_TO_SIMPLE: Record<string, ExcalidrawElementType> = {
@@ -37,7 +39,7 @@ function simplifyElement(raw: Record<string, unknown>): ExcalidrawElement {
 }
 
 const ExcalidrawWrapper = forwardRef<ExcalidrawWrapperHandle, ExcalidrawWrapperProps>(
-  ({ elementsToAdd, onElementsAdded }, ref) => {
+  ({ actionsToApply, onActionsApplied }, ref) => {
     const excalidrawRef = useRef<ExcalidrawImperativeAPI | null>(null)
     const [isLoaded, setIsLoaded] = useState(false)
 
@@ -48,20 +50,61 @@ const ExcalidrawWrapper = forwardRef<ExcalidrawWrapperHandle, ExcalidrawWrapperP
         const raw = api.getSceneElements() as unknown as Record<string, unknown>[]
         return raw.map(simplifyElement)
       },
+      getViewport: () => {
+        const api = excalidrawRef.current
+        if (!api) return { width: 1200, height: 800 }
+        const state = api.getAppState() as Record<string, unknown>
+        const w = (state.width as number) || 1200
+        const h = (state.height as number) || 800
+        return { width: w, height: h }
+      },
     }))
 
-    const handleAddElements = useCallback(
-      (elements: ExcalidrawElement[]) => {
+    const applyActions = useCallback(
+      (actions: DiagramAction[]) => {
         const api = excalidrawRef.current
         if (!api) return
 
-        console.log("=== Elements from LLM ===")
-        console.log(JSON.stringify(elements, null, 2))
+        const raw = api.getSceneElements() as unknown as Record<string, unknown>[]
+        const simpleElements = raw.map(simplifyElement)
+        const result = processActions(actions, simpleElements)
 
-        const existing = api.getSceneElements()
-        console.log("=== Existing elements count ===", existing.length)
+        console.log("=== Applying actions ===")
+        console.log("Actions:", JSON.stringify(actions, null, 2))
+        console.log("Result:", JSON.stringify(result, null, 2))
 
-        const elementsForRestore = elements.map((el, i) => ({
+        let newElements: Record<string, unknown>[]
+
+        if (result.shouldClear) {
+          newElements = []
+        } else {
+          const rawElements = [...raw]
+
+          const sortedRemovals = [...result.elementsToRemove].sort((a, b) => b - a)
+          for (const idx of sortedRemovals) {
+            if (idx >= 0 && idx < rawElements.length) {
+              rawElements.splice(idx, 1)
+            }
+          }
+
+          for (const mod of result.elementsToModify) {
+            if (mod.index >= 0 && mod.index < rawElements.length) {
+              const target = rawElements[mod.index] as Record<string, unknown>
+              if (mod.changes.strokeColor !== undefined) target.strokeColor = mod.changes.strokeColor
+              if (mod.changes.backgroundColor !== undefined) target.backgroundColor = mod.changes.backgroundColor
+              if (mod.changes.text !== undefined) target.text = mod.changes.text
+              if (mod.changes.x !== undefined) target.x = mod.changes.x
+              if (mod.changes.y !== undefined) target.y = mod.changes.y
+              if (mod.changes.width !== undefined) target.width = mod.changes.width
+              if (mod.changes.height !== undefined) target.height = mod.changes.height
+              if (mod.changes.fontSize !== undefined) target.fontSize = mod.changes.fontSize
+            }
+          }
+
+          newElements = rawElements
+        }
+
+        const elementsForRestore = result.elementsToAdd.map((el, i) => ({
           id: `voice-${Date.now()}-${i}`,
           type: el.type,
           x: el.x,
@@ -92,34 +135,27 @@ const ExcalidrawWrapper = forwardRef<ExcalidrawWrapperHandle, ExcalidrawWrapperP
           ...(el.points !== undefined && { points: el.points, startBinding: null, endBinding: null, lastCommittedPoint: null }),
         }))
 
-        console.log("=== Elements for restore ===")
-        console.log(JSON.stringify(elementsForRestore, null, 2))
-
         const restored = restoreElements(
           elementsForRestore as unknown as any[],
           null
         )
 
-        console.log("=== Restored elements ===")
-        console.log(JSON.stringify(restored, null, 2))
+        const combined = [...newElements, ...restored]
 
-        const combined = [...existing, ...restored]
-
-        console.log("=== Calling updateScene with", combined.length, "elements ===")
+        console.log("Calling updateScene with", combined.length, "elements")
         api.updateScene({
           elements: combined as unknown as never,
         })
-        console.log("=== updateScene called ===")
       },
       []
     )
 
     useEffect(() => {
-      if (elementsToAdd.length > 0 && isLoaded) {
-        handleAddElements(elementsToAdd)
-        onElementsAdded()
+      if (actionsToApply.length > 0 && isLoaded) {
+        applyActions(actionsToApply)
+        onActionsApplied()
       }
-    }, [elementsToAdd, handleAddElements, onElementsAdded, isLoaded])
+    }, [actionsToApply, applyActions, onActionsApplied, isLoaded])
 
     const handleAPI = useCallback((api: ExcalidrawImperativeAPI) => {
       excalidrawRef.current = api

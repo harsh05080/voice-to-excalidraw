@@ -9,6 +9,7 @@ export type ExcalidrawElementType =
   | "image"
 
 export interface ExcalidrawElement {
+  id?: string
   type: ExcalidrawElementType
   x: number
   y: number
@@ -68,6 +69,7 @@ export type DiagramAction = AddAction | ModifyAction | DeleteAction | ClearActio
 
 export interface ActionsResponse {
   actions: DiagramAction[]
+  reply?: string
 }
 
 export interface TextToElementsRequest {
@@ -76,4 +78,10 @@ export interface TextToElementsRequest {
   viewportWidth: number
   viewportHeight: number
   conversationHistory: { role: "user" | "assistant"; content: string }[]
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant"
+  content: string
+  timestamp: number
 }

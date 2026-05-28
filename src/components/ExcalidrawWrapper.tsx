@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, forwardRef, useImperativeHandle, useState } from "react"
-import { Excalidraw, restoreElements } from "@excalidraw/excalidraw"
+import { Excalidraw, restoreElements, exportToBlob } from "@excalidraw/excalidraw"
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types"
 import type { ExcalidrawElement, ExcalidrawElementType, DiagramAction } from "../types"
 import { processActions } from "../lib/actions"
@@ -13,6 +13,12 @@ interface ExcalidrawWrapperProps {
 export interface ExcalidrawWrapperHandle {
   getSceneElements: () => ExcalidrawElement[]
   getViewport: () => { width: number; height: number }
+  undo: () => void
+  redo: () => void
+  zoomIn: () => void
+  zoomOut: () => void
+  clearCanvas: () => void
+  exportAsImage: () => Promise<void>
 }
 
 const EXCALIDRAW_TO_SIMPLE: Record<string, ExcalidrawElementType> = {
@@ -38,10 +44,86 @@ function simplifyElement(raw: Record<string, unknown>): ExcalidrawElement {
   }
 }
 
+const MAX_UNDO = 50
+
 const ExcalidrawWrapper = forwardRef<ExcalidrawWrapperHandle, ExcalidrawWrapperProps>(
   ({ actionsToApply, onActionsApplied }, ref) => {
     const excalidrawRef = useRef<ExcalidrawImperativeAPI | null>(null)
     const [isLoaded, setIsLoaded] = useState(false)
+    const undoStack = useRef<Record<string, unknown>[][]>([])
+    const redoStack = useRef<Record<string, unknown>[][]>([])
+
+    const saveForUndo = useCallback(() => {
+      const api = excalidrawRef.current
+      if (!api) return
+      const elements = api.getSceneElements() as unknown as Record<string, unknown>[]
+      undoStack.current.push(elements.map((el) => ({ ...el })))
+      if (undoStack.current.length > MAX_UNDO) undoStack.current.shift()
+      redoStack.current = []
+    }, [])
+
+    const undo = useCallback(() => {
+      const api = excalidrawRef.current
+      if (!api || undoStack.current.length === 0) return
+      const current = api.getSceneElements() as unknown as Record<string, unknown>[]
+      redoStack.current.push(current.map((el) => ({ ...el })))
+      const previous = undoStack.current.pop()!
+      api.updateScene({ elements: previous as never })
+    }, [])
+
+    const redo = useCallback(() => {
+      const api = excalidrawRef.current
+      if (!api || redoStack.current.length === 0) return
+      const current = api.getSceneElements() as unknown as Record<string, unknown>[]
+      undoStack.current.push(current.map((el) => ({ ...el })))
+      const next = redoStack.current.pop()!
+      api.updateScene({ elements: next as never })
+    }, [])
+
+    const zoomIn = useCallback(() => {
+      const api = excalidrawRef.current
+      if (!api) return
+      const state = api.getAppState()
+      const newZoom = (state.zoom?.value ?? 1) * 1.25
+      api.updateScene({ appState: { zoom: { value: newZoom } } as never })
+    }, [])
+
+    const zoomOut = useCallback(() => {
+      const api = excalidrawRef.current
+      if (!api) return
+      const state = api.getAppState()
+      const newZoom = (state.zoom?.value ?? 1) / 1.25
+      api.updateScene({ appState: { zoom: { value: newZoom } } as never })
+    }, [])
+
+    const clearCanvas = useCallback(() => {
+      const api = excalidrawRef.current
+      if (!api) return
+      saveForUndo()
+      api.updateScene({ elements: [] as never })
+    }, [saveForUndo])
+
+    const exportAsImage = useCallback(async () => {
+      const api = excalidrawRef.current
+      if (!api) return
+      const elements = api.getSceneElements()
+      const appState = api.getAppState()
+      const blob = await exportToBlob({
+        elements,
+        appState,
+        files: null,
+        exportPadding: 20,
+        mimeType: "image/png",
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `diagram-${Date.now()}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }, [])
 
     useImperativeHandle(ref, () => ({
       getSceneElements: () => {
@@ -58,12 +140,20 @@ const ExcalidrawWrapper = forwardRef<ExcalidrawWrapperHandle, ExcalidrawWrapperP
         const h = (state.height as number) || 800
         return { width: w, height: h }
       },
+      undo,
+      redo,
+      zoomIn,
+      zoomOut,
+      clearCanvas,
+      exportAsImage,
     }))
 
     const applyActions = useCallback(
       (actions: DiagramAction[]) => {
         const api = excalidrawRef.current
         if (!api) return
+
+        saveForUndo()
 
         const raw = api.getSceneElements() as unknown as Record<string, unknown>[]
         const simpleElements = raw.map(simplifyElement)
